@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ENV_FILE="/etc/hosts-dns-forwarder/hosts-dns-forwarder.env"
+
+# systemd's EnvironmentFile= already loads this, but sourcing makes the wrapper
+# runnable manually too.
+if [[ -f "$ENV_FILE" ]]; then
+  # shellcheck disable=SC1090
+  source "$ENV_FILE"
+fi
+
+LISTEN="${HOSTS_DNS_FORWARDER_LISTEN:-${STUPID_DNS_LISTEN:-127.0.0.1:53}}"
+HOSTS="${HOSTS_DNS_FORWARDER_HOSTS:-${STUPID_DNS_HOSTS:-/etc/hosts}}"
+TTL="${HOSTS_DNS_FORWARDER_TTL:-${STUPID_DNS_TTL:-60}}"
+TIMEOUT_MS="${HOSTS_DNS_FORWARDER_TIMEOUT_MS:-${STUPID_DNS_TIMEOUT_MS:-1500}}"
+
+RESOLV="${HOSTS_DNS_FORWARDER_RESOLV:-${STUPID_DNS_RESOLV:-}}"
+if [[ -z "$RESOLV" ]]; then
+  if [[ -r /run/systemd/resolve/resolv.conf ]]; then
+    RESOLV="/run/systemd/resolve/resolv.conf"
+  else
+    RESOLV="/etc/resolv.conf"
+  fi
+fi
+
+args=(
+  --listen "$LISTEN"
+  --hosts "$HOSTS"
+  --resolv "$RESOLV"
+  --timeout-ms "$TIMEOUT_MS"
+  --ttl "$TTL"
+)
+
+UPSTREAMS="${HOSTS_DNS_FORWARDER_UPSTREAMS:-${STUPID_DNS_UPSTREAMS:-}}"
+if [[ -n "${UPSTREAMS}" ]]; then
+  for ns in ${UPSTREAMS}; do
+    args+=( --upstream "$ns" )
+  done
+fi
+
+EXTRA_ARGS="${HOSTS_DNS_FORWARDER_EXTRA_ARGS:-${STUPID_DNS_EXTRA_ARGS:-}}"
+if [[ -n "${EXTRA_ARGS}" ]]; then
+  # shellcheck disable=SC2206
+  extra=( ${EXTRA_ARGS} )
+  args+=( "${extra[@]}" )
+fi
+
+exec /usr/bin/hosts-dns-forwarder "${args[@]}"

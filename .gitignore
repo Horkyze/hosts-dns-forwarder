@@ -1,0 +1,10 @@
+/target
+
+# Local build artifacts
+/dist/
+*.deb
+
+# Editor/OS noise
+.DS_Store
+*.swp
+*~

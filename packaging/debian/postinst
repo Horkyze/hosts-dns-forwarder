@@ -1,0 +1,28 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+  configure|abort-upgrade|abort-deconfigure|abort-remove)
+    ;;
+  *)
+    exit 0
+    ;;
+esac
+
+if ! id -u hosts-dns-forwarder >/dev/null 2>&1; then
+  if command -v adduser >/dev/null 2>&1; then
+    adduser --system --group --no-create-home --home /nonexistent --shell /usr/sbin/nologin hosts-dns-forwarder >/dev/null
+  elif command -v useradd >/dev/null 2>&1; then
+    useradd --system --user-group --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin hosts-dns-forwarder
+  fi
+fi
+
+if command -v systemctl >/dev/null 2>&1 && [ -d /run/systemd/system ]; then
+  systemctl daemon-reload >/dev/null 2>&1 || true
+
+  # Try to enable+start, but don't fail package install if it can't start
+  # (e.g. port 53 already in use).
+  systemctl enable --now hosts-dns-forwarder.service >/dev/null 2>&1 || true
+fi
+
+exit 0

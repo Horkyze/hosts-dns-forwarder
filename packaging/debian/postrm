@@ -1,0 +1,25 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+  purge)
+    if command -v systemctl >/dev/null 2>&1 && [ -d /run/systemd/system ]; then
+      systemctl disable --now hosts-dns-forwarder.service >/dev/null 2>&1 || true
+      systemctl daemon-reload >/dev/null 2>&1 || true
+    fi
+
+    if command -v deluser >/dev/null 2>&1; then
+      deluser --system --quiet hosts-dns-forwarder >/dev/null 2>&1 || true
+    elif command -v userdel >/dev/null 2>&1; then
+      userdel hosts-dns-forwarder >/dev/null 2>&1 || true
+    fi
+
+    if command -v delgroup >/dev/null 2>&1; then
+      delgroup --system --quiet hosts-dns-forwarder >/dev/null 2>&1 || true
+    elif command -v groupdel >/dev/null 2>&1; then
+      groupdel hosts-dns-forwarder >/dev/null 2>&1 || true
+    fi
+    ;;
+esac
+
+exit 0
