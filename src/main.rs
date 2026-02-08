@@ -1,7 +1,4 @@
 use anyhow::{anyhow, bail, Context, Result};
-use trust_dns_proto::op::{Message, MessageType, OpCode, Query, ResponseCode};
-use trust_dns_proto::rr::rdata::{A, AAAA};
-use trust_dns_proto::rr::{Name, RData, Record, RecordType};
 use std::collections::HashMap;
 use std::env;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
@@ -9,6 +6,9 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 use tokio::net::UdpSocket;
 use tokio::time::timeout;
+use trust_dns_proto::op::{Message, MessageType, OpCode, Query, ResponseCode};
+use trust_dns_proto::rr::rdata::{A, AAAA};
+use trust_dns_proto::rr::{Name, RData, Record, RecordType};
 
 // Avoid clashing with mDNS (UDP/5353).
 const DEFAULT_LISTEN: &str = "127.0.0.1:5300";
@@ -56,10 +56,7 @@ async fn main() -> Result<()> {
     let mut buf = vec![0u8; MAX_DNS_PACKET];
 
     loop {
-        let (n, peer) = sock
-            .recv_from(&mut buf)
-            .await
-            .context("recv UDP packet")?;
+        let (n, peer) = sock.recv_from(&mut buf).await.context("recv UDP packet")?;
         let packet = buf[..n].to_vec();
 
         let sock = std::sync::Arc::clone(&sock);
@@ -91,26 +88,36 @@ impl Config {
                     std::process::exit(0);
                 }
                 "-l" | "--listen" => {
-                    let v = args.next().ok_or_else(|| anyhow!("--listen needs a value"))?;
+                    let v = args
+                        .next()
+                        .ok_or_else(|| anyhow!("--listen needs a value"))?;
                     listen = v.parse().with_context(|| format!("parse --listen {v}"))?;
                 }
                 "--hosts" => {
-                    let v = args.next().ok_or_else(|| anyhow!("--hosts needs a value"))?;
+                    let v = args
+                        .next()
+                        .ok_or_else(|| anyhow!("--hosts needs a value"))?;
                     hosts_path = PathBuf::from(v);
                 }
                 "--resolv" => {
-                    let v = args.next().ok_or_else(|| anyhow!("--resolv needs a value"))?;
+                    let v = args
+                        .next()
+                        .ok_or_else(|| anyhow!("--resolv needs a value"))?;
                     resolv_conf = PathBuf::from(v);
                 }
                 "-u" | "--upstream" => {
-                    let v = args.next().ok_or_else(|| anyhow!("--upstream needs a value"))?;
+                    let v = args
+                        .next()
+                        .ok_or_else(|| anyhow!("--upstream needs a value"))?;
                     upstreams.push(parse_upstream(&v)?);
                 }
                 "--timeout-ms" => {
                     let v = args
                         .next()
                         .ok_or_else(|| anyhow!("--timeout-ms needs a value"))?;
-                    let ms: u64 = v.parse().with_context(|| format!("parse --timeout-ms {v}"))?;
+                    let ms: u64 = v
+                        .parse()
+                        .with_context(|| format!("parse --timeout-ms {v}"))?;
                     forward_timeout = Duration::from_millis(ms);
                 }
                 "--ttl" => {
@@ -167,8 +174,12 @@ fn would_recurse(listen: SocketAddr, upstream: SocketAddr) -> bool {
     // If we listen on a wildcard address (0.0.0.0 / ::), forwarding to loopback on the same
     // port will hit this process.
     match (listen.ip(), upstream.ip()) {
-        (IpAddr::V4(l), IpAddr::V4(u)) if l.is_unspecified() => u.is_loopback() || u.is_unspecified(),
-        (IpAddr::V6(l), IpAddr::V6(u)) if l.is_unspecified() => u.is_loopback() || u.is_unspecified(),
+        (IpAddr::V4(l), IpAddr::V4(u)) if l.is_unspecified() => {
+            u.is_loopback() || u.is_unspecified()
+        }
+        (IpAddr::V6(l), IpAddr::V6(u)) if l.is_unspecified() => {
+            u.is_loopback() || u.is_unspecified()
+        }
         _ => false,
     }
 }
@@ -183,7 +194,9 @@ fn parse_upstream(s: &str) -> Result<SocketAddr> {
     if let Ok(sa) = s.parse::<SocketAddr>() {
         return Ok(sa);
     }
-    let ip: IpAddr = s.parse().with_context(|| format!("parse upstream IP {s}"))?;
+    let ip: IpAddr = s
+        .parse()
+        .with_context(|| format!("parse upstream IP {s}"))?;
     Ok(SocketAddr::new(ip, 53))
 }
 
@@ -322,7 +335,13 @@ async fn forward_udp_once(upstream: SocketAddr, packet: &[u8], to: Duration) -> 
     Ok(buf)
 }
 
-fn build_hosts_response(cfg: &Config, req: &Message, q: Query, ips: &[IpAddr], qtype: RecordType) -> Result<Vec<u8>> {
+fn build_hosts_response(
+    cfg: &Config,
+    req: &Message,
+    q: Query,
+    ips: &[IpAddr],
+    qtype: RecordType,
+) -> Result<Vec<u8>> {
     let mut resp = Message::new();
     resp.set_id(req.id());
     resp.set_message_type(MessageType::Response);
@@ -407,7 +426,9 @@ async fn load_hosts_map(path: &Path) -> Result<HashMap<String, Vec<IpAddr>>> {
 
         let mut parts = line.split_whitespace();
         let Some(ip_s) = parts.next() else { continue };
-        let Ok(ip) = ip_s.parse::<IpAddr>() else { continue };
+        let Ok(ip) = ip_s.parse::<IpAddr>() else {
+            continue;
+        };
 
         for name in parts {
             let name = name.trim();
